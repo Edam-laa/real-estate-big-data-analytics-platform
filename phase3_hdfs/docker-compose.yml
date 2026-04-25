@@ -1,0 +1,42 @@
+version: "3.8"
+
+services:
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode
+    hostname: namenode
+    restart: always
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    volumes:
+      - namenode_data:/hadoop/dfs/name
+      - ../phase2_docker/output:/external_output
+    environment:
+      CLUSTER_NAME: test-cluster
+      CORE_CONF_fs_defaultFS: hdfs://namenode:9000
+      CORE_CONF_hadoop_http_staticuser_user: root
+      HDFS_CONF_dfs_replication: 1
+      HDFS_CONF_dfs_namenode_datanode_registration_ip___hostname___check: "false"
+
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode
+    hostname: datanode
+    restart: always
+    ports:
+      - "9864:9864"
+    volumes:
+      - datanode_data:/hadoop/dfs/data
+    environment:
+      CORE_CONF_fs_defaultFS: hdfs://namenode:9000
+      CORE_CONF_hadoop_http_staticuser_user: root
+      HDFS_CONF_dfs_replication: 1
+      HDFS_CONF_dfs_namenode_datanode_registration_ip___hostname___check: "false"
+      SERVICE_PRECONDITION: "namenode:9870"
+    depends_on:
+      - namenode
+
+volumes:
+  namenode_data:
+  datanode_data:

@@ -1,0 +1,32 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environnements Python
+venv/
+.venv/
+env/
+
+# Variables sensibles
+.env
+
+# Logs
+*.log
+
+# IDE / éditeurs
+.vscode/
+.idea/
+
+# Système
+.DS_Store
+Thumbs.db
+
+# Fichiers générés de visualisation
+phase6_visualisation/output/*.txt
+
+# Archives
+*.zip
+*.rar
+*.7z

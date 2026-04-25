@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: ames-postgres
+    environment:
+      POSTGRES_DB: ames_platform
+      POSTGRES_USER: ames_user
+      POSTGRES_PASSWORD: ames_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d
+      - ./data:/data
+
+volumes:
+  postgres_data:

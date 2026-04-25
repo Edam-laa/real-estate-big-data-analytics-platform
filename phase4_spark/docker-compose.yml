@@ -1,0 +1,60 @@
+services:
+  spark-master:
+    image: spark:3.5.8-python3
+    container_name: spark-master
+    environment:
+      SPARK_NO_DAEMONIZE: "true"
+      SPARK_LOCAL_IP: "172.30.0.10"
+      SPARK_MASTER_HOST: "172.30.0.10"
+      SPARK_MASTER_PORT: "7077"
+      SPARK_MASTER_WEBUI_PORT: "8080"
+      SPARK_MASTER_OPTS: "-Dspark.master.ui.bindAddress=0.0.0.0"
+    entrypoint:
+      - /bin/bash
+      - -lc
+    command:
+      - /opt/spark/sbin/start-master.sh
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    volumes:
+      - ./app:/app
+    networks:
+      spark_net:
+        ipv4_address: 172.30.0.10
+      hdfs_net:
+
+  spark-worker:
+    image: spark:3.5.8-python3
+    container_name: spark-worker
+    depends_on:
+      - spark-master
+    environment:
+      SPARK_NO_DAEMONIZE: "true"
+      SPARK_LOCAL_IP: "172.30.0.11"
+      SPARK_WORKER_CORES: "1"
+      SPARK_WORKER_MEMORY: "2g"
+      SPARK_WORKER_WEBUI_PORT: "8081"
+    entrypoint:
+      - /bin/bash
+      - -lc
+    command:
+      - /opt/spark/sbin/start-worker.sh spark://172.30.0.10:7077
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./app:/app
+    networks:
+      spark_net:
+        ipv4_address: 172.30.0.11
+      hdfs_net:
+
+networks:
+  spark_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+  hdfs_net:
+    external: true
+    name: phase3_hdfs_default
