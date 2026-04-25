@@ -342,13 +342,10 @@ Exemples d’analyses :
 ### 1. Cloner le dépôt
 
 ```bash
-git clone https://github.com/USERNAME/real-estate-big-data-analytics-platform.git
+git clone https://github.com/Edam-laa/real-estate-big-data-analytics-platform.git
 cd real-estate-big-data-analytics-platform
 ```
 
-Remplacer `USERNAME` par le nom d’utilisateur GitHub.
-
----
 
 ### 2. Lancer les services Docker
 
