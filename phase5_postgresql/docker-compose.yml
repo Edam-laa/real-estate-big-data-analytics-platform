@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: ames_platform
       POSTGRES_USER: ames_user
-      POSTGRES_PASSWORD: ames_password
+      POSTGRES_PASSWORD: ${AMES_POSTGRES_PASSWORD:-ames_password}
     ports:
       - "5433:5432"
     volumes:

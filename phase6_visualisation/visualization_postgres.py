@@ -23,7 +23,7 @@ DB_HOST = os.getenv("AMES_DB_HOST", "127.0.0.1")
 DB_PORT = int(os.getenv("AMES_DB_PORT", "5433"))
 DB_NAME = os.getenv("AMES_DB_NAME", "ames_platform")
 DB_USER = os.getenv("AMES_DB_USER", "ames_user")
-DB_PASSWORD = os.getenv("AMES_DB_PASSWORD", "")  # keep empty if pg_hba.conf uses trust
+DB_PASSWORD = os.getenv("AMES_DB_PASSWORD", "ames_password")  # local demo default; override via environment
 
 BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = BASE_DIR / "output"
@@ -220,7 +220,7 @@ pred_col = pick_existing(predictions, ["saleprice_pred", "sale_price_pred", "pre
 abs_error_col = pick_existing(predictions, ["abs_error", "absolute_error"])
 
 to_numeric(predictions, [pred_run_col, real_col, pred_col, abs_error_col])
-to_numeric(model_runs, ["run_id", "rmse_cv", "mae_cv", "r2_cv", "rmse_test", "mae_test", "r2_test"])
+to_numeric(model_runs, ["run_id", "rmse_train", "mae_train", "r2_train", "rmse_cv", "mae_cv", "r2_cv", "rmse_test", "mae_test", "r2_test"])
 
 if abs_error_col is None and real_col and pred_col:
     predictions["abs_error"] = (predictions[real_col] - predictions[pred_col]).abs()
@@ -243,6 +243,19 @@ if "house_id" in pred_enriched.columns:
         if col and col not in keep_cols and col in analytics.columns:
             keep_cols.append(col)
     pred_enriched = pred_enriched.merge(analytics[keep_cols], on="house_id", how="left")
+
+    # Detect stale predictions generated before stable house IDs were fixed.
+    if real_col and sale_price_col and not pred_enriched.empty:
+        check = pred_enriched[[real_col, sale_price_col]].dropna()
+        actuals = pd.to_numeric(check[real_col], errors="coerce")
+        sale_prices = pd.to_numeric(check[sale_price_col], errors="coerce")
+        mismatched = ~np.isclose(actuals, sale_prices, rtol=0, atol=0.01)
+        if mismatched.any():
+            raise ValueError(
+                f"{int(mismatched.sum())} prediction rows do not match the "
+                "corresponding house sale prices. Existing database runs may "
+                "use pre-fix, unstable house IDs; verify or rebuild safely."
+            )
 
 pred_enriched.to_csv(OUTPUT_DIR / "predictions_enriched.csv", index=False)
 model_runs.to_csv(OUTPUT_DIR / "model_runs_snapshot.csv", index=False)

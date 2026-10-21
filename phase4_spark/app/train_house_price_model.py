@@ -13,9 +13,9 @@ from pyspark.ml.evaluation import RegressionEvaluator
 # ============================================================
 # CONFIG
 # ============================================================
-HDFS_INPUT_PATH = "hdfs://namenode:9000/data/ames/ames_housing_prepared.csv"
+HDFS_INPUT_PATH = os.getenv("AMES_HDFS_INPUT", "hdfs://namenode:9000/data/ames/ames_housing_prepared.csv")
 
-JDBC_URL = "jdbc:postgresql://ames-postgres:5432/ames_platform"
+JDBC_URL = os.getenv("AMES_JDBC_URL", "jdbc:postgresql://ames-postgres:5432/ames_platform")
 DB_USER = os.getenv("AMES_POSTGRES_USER", "ames_user")
 DB_PASSWORD = os.getenv("AMES_POSTGRES_PASSWORD", "ames_password")
 DB_DRIVER = "org.postgresql.Driver"
@@ -123,9 +123,9 @@ def build_insert_payload_model_run(metrics_dict, table_columns):
 
     mapping = {
         "model_name": ["model_name", "model", "algorithm"],
-        "rmse_cv": ["rmse_cv"],
-        "mae_cv": ["mae_cv"],
-        "r2_cv": ["r2_cv"],
+        "rmse_train": ["rmse_train", "rmse_cv"],
+        "mae_train": ["mae_train", "mae_cv"],
+        "r2_train": ["r2_train", "r2_cv"],
         "rmse_test": ["rmse_test"],
         "mae_test": ["mae_test"],
         "r2_test": ["r2_test"],
@@ -133,9 +133,9 @@ def build_insert_payload_model_run(metrics_dict, table_columns):
 
     logical_values = {
         "model_name": metrics_dict["model_name"],
-        "rmse_cv": float(metrics_dict["rmse_cv"]),
-        "mae_cv": float(metrics_dict["mae_cv"]),
-        "r2_cv": float(metrics_dict["r2_cv"]),
+        "rmse_train": float(metrics_dict["rmse_train"]),
+        "mae_train": float(metrics_dict["mae_train"]),
+        "r2_train": float(metrics_dict["r2_train"]),
         "rmse_test": float(metrics_dict["rmse_test"]),
         "mae_test": float(metrics_dict["mae_test"]),
         "r2_test": float(metrics_dict["r2_test"]),
@@ -430,9 +430,9 @@ for model_name, estimator in models:
 
     metrics_dict = {
         "model_name": model_name,
-        "rmse_cv": train_metrics["rmse"],
-        "mae_cv": train_metrics["mae"],
-        "r2_cv": train_metrics["r2"],
+        "rmse_train": train_metrics["rmse"],
+        "mae_train": train_metrics["mae"],
+        "r2_train": train_metrics["r2"],
         "rmse_test": test_metrics["rmse"],
         "mae_test": test_metrics["mae"],
         "r2_test": test_metrics["r2"],
@@ -446,9 +446,9 @@ for model_name, estimator in models:
 
     summary_rows.append({
         "model_name": model_name,
-        "rmse_cv": train_metrics["rmse"],
-        "mae_cv": train_metrics["mae"],
-        "r2_cv": train_metrics["r2"],
+        "rmse_train": train_metrics["rmse"],
+        "mae_train": train_metrics["mae"],
+        "r2_train": train_metrics["r2"],
         "rmse_test": test_metrics["rmse"],
         "mae_test": test_metrics["mae"],
         "r2_test": test_metrics["r2"]

@@ -4,6 +4,7 @@ services:
     container_name: spark-master
     environment:
       SPARK_NO_DAEMONIZE: "true"
+      AMES_POSTGRES_PASSWORD: ${AMES_POSTGRES_PASSWORD:-ames_password}
       SPARK_LOCAL_IP: "172.30.0.10"
       SPARK_MASTER_HOST: "172.30.0.10"
       SPARK_MASTER_PORT: "7077"
@@ -23,6 +24,7 @@ services:
       spark_net:
         ipv4_address: 172.30.0.10
       hdfs_net:
+      postgres_net:
 
   spark-worker:
     image: spark:3.5.8-python3
@@ -31,6 +33,7 @@ services:
       - spark-master
     environment:
       SPARK_NO_DAEMONIZE: "true"
+      AMES_POSTGRES_PASSWORD: ${AMES_POSTGRES_PASSWORD:-ames_password}
       SPARK_LOCAL_IP: "172.30.0.11"
       SPARK_WORKER_CORES: "1"
       SPARK_WORKER_MEMORY: "2g"
@@ -48,6 +51,7 @@ services:
       spark_net:
         ipv4_address: 172.30.0.11
       hdfs_net:
+      postgres_net:
 
 networks:
   spark_net:
@@ -58,3 +62,6 @@ networks:
   hdfs_net:
     external: true
     name: phase3_hdfs_default
+  postgres_net:
+    external: true
+    name: phase5_postgresql_default

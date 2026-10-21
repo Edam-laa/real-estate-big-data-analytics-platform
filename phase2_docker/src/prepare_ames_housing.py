@@ -258,6 +258,26 @@ def engineer_features(dataframe: pd.DataFrame) -> pd.DataFrame:
     return engineered
 
 
+def assign_stable_house_ids(dataframe: pd.DataFrame) -> pd.DataFrame:
+    """Preserve the original Ames Housing Order identifier after filtering rows.
+
+    Resetting the index after removing outliers would reassign IDs and corrupt
+    joins between the prepared dataset and the original PostgreSQL import.
+    """
+    source_column = resolve_column_name(dataframe.columns, "Order")
+    identifiers = pd.to_numeric(dataframe[source_column], errors="coerce")
+    if (
+        identifiers.isna().any()
+        or (identifiers <= 0).any()
+        or (identifiers % 1 != 0).any()
+        or identifiers.duplicated().any()
+    ):
+        raise ValueError("Ames Housing Order must contain unique positive integer IDs.")
+    result = dataframe.copy()
+    result["house_id"] = identifiers.astype("int64")
+    return result
+
+
 def drop_unused_identifiers(dataframe: pd.DataFrame) -> pd.DataFrame:
     """Supprime les colonnes d'identification inutiles pour la prÃ©diction."""
     pruned = dataframe.copy()
@@ -312,7 +332,8 @@ def print_summary(
 def main() -> int:
     raw_path = data_dir() / RAW_FILENAME
     fallback_raw_path = project_root() / RAW_FILENAME
-    prepared_path = data_dir() / PREPARED_FILENAME
+    # This directory is bind-mounted into the HDFS namenode container.
+    prepared_path = project_root() / "output" / PREPARED_FILENAME
 
     if not raw_path.exists() and fallback_raw_path.exists():
         raw_path = fallback_raw_path
@@ -323,9 +344,9 @@ def main() -> int:
 
         cleaned_dataframe = clean_data(raw_dataframe)
         prepared_base_dataframe = engineer_features(cleaned_dataframe)
+        prepared_base_dataframe = assign_stable_house_ids(prepared_base_dataframe)
         prepared_base_dataframe = drop_unused_identifiers(prepared_base_dataframe)
         prepared_base_dataframe = prepared_base_dataframe.reset_index(drop=True)
-        prepared_base_dataframe["house_id"] = prepared_base_dataframe.index + 1
 
         prepared_dataframe, _, _ = encode_features(prepared_base_dataframe)
         saved_path = save_prepared_data(prepared_dataframe, prepared_path)

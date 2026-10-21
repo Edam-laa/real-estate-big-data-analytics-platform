@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 from typing import Any, Optional
 
 import pandas as pd
@@ -5,13 +7,13 @@ import pg8000
 
 
 DB_CONFIG = {
-    "host": "127.0.0.1",
-    "port": 5432,
-    "database": "ames_platform",
-    "user": "ames_user",
-    "password": "ames_password",
+    "host": os.getenv("AMES_DB_HOST", "127.0.0.1"),
+    "port": int(os.getenv("AMES_DB_PORT", "5433")),
+    "database": os.getenv("AMES_DB_NAME", "ames_platform"),
+    "user": os.getenv("AMES_DB_USER", "ames_user"),
+    "password": os.getenv("AMES_DB_PASSWORD", "ames_password"),
 }
-TSV_PATH = "data/AmesHousing.tsv"
+TSV_PATH = Path(__file__).resolve().parent / "data" / "AmesHousing.tsv"
 
 
 def clean_value(value: Any) -> Optional[Any]:
@@ -46,8 +48,19 @@ def main() -> None:
     print(f"Lecture du fichier : {TSV_PATH}")
     df = pd.read_csv(TSV_PATH, sep="\t")
 
-    df = df.reset_index(drop=True)
-    df["house_id"] = df.index + 1
+    # Use the ORIGINAL Order key, not a filtered or reset DataFrame index.
+    # The preparation pipeline uses this same identifier after removing outliers.
+    if "Order" not in df.columns:
+        raise ValueError("Missing original Ames Housing Order identifier.")
+    identifiers = pd.to_numeric(df["Order"], errors="coerce")
+    if (
+        identifiers.isna().any()
+        or (identifiers <= 0).any()
+        or (identifiers % 1 != 0).any()
+        or identifiers.duplicated().any()
+    ):
+        raise ValueError("Order must contain unique positive integer identifiers.")
+    df["house_id"] = identifiers.astype("int64")
 
     print("Connexion a PostgreSQL...")
     conn = pg8000.connect(**DB_CONFIG)
@@ -110,12 +123,6 @@ def main() -> None:
                 to_float(row.get("SalePrice")),
             ))
 
-        cur.execute("DELETE FROM predictions;")
-        cur.execute("DELETE FROM model_runs;")
-        cur.execute("DELETE FROM houses_sale;")
-        cur.execute("DELETE FROM houses_structure;")
-        cur.execute("DELETE FROM houses_location;")
-        cur.execute("DELETE FROM houses_core;")
 
         cur.executemany(
             """
@@ -126,6 +133,21 @@ def main() -> None:
                 fireplaces, central_air
             )
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (house_id) DO UPDATE SET
+                bldg_type = EXCLUDED.bldg_type,
+                house_style = EXCLUDED.house_style,
+                overall_qual = EXCLUDED.overall_qual,
+                overall_cond = EXCLUDED.overall_cond,
+                year_built = EXCLUDED.year_built,
+                year_remod_add = EXCLUDED.year_remod_add,
+                gr_liv_area = EXCLUDED.gr_liv_area,
+                bedroom_abvgr = EXCLUDED.bedroom_abvgr,
+                kitchen_abvgr = EXCLUDED.kitchen_abvgr,
+                kitchen_qual = EXCLUDED.kitchen_qual,
+                full_bath = EXCLUDED.full_bath,
+                half_bath = EXCLUDED.half_bath,
+                fireplaces = EXCLUDED.fireplaces,
+                central_air = EXCLUDED.central_air
             """,
             core_rows,
         )
@@ -136,6 +158,11 @@ def main() -> None:
                 house_id, ms_zoning, lot_frontage, lot_area, neighborhood
             )
             VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (house_id) DO UPDATE SET
+                ms_zoning = EXCLUDED.ms_zoning,
+                lot_frontage = EXCLUDED.lot_frontage,
+                lot_area = EXCLUDED.lot_area,
+                neighborhood = EXCLUDED.neighborhood
             """,
             location_rows,
         )
@@ -148,6 +175,16 @@ def main() -> None:
                 screen_porch, pool_area
             )
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (house_id) DO UPDATE SET
+                total_bsmt_sf = EXCLUDED.total_bsmt_sf,
+                first_flr_sf = EXCLUDED.first_flr_sf,
+                second_flr_sf = EXCLUDED.second_flr_sf,
+                garage_cars = EXCLUDED.garage_cars,
+                garage_area = EXCLUDED.garage_area,
+                wood_deck_sf = EXCLUDED.wood_deck_sf,
+                open_porch_sf = EXCLUDED.open_porch_sf,
+                screen_porch = EXCLUDED.screen_porch,
+                pool_area = EXCLUDED.pool_area
             """,
             structure_rows,
         )
@@ -158,6 +195,10 @@ def main() -> None:
                 house_id, mo_sold, yr_sold, sale_price
             )
             VALUES (%s, %s, %s, %s)
+            ON CONFLICT (house_id) DO UPDATE SET
+                mo_sold = EXCLUDED.mo_sold,
+                yr_sold = EXCLUDED.yr_sold,
+                sale_price = EXCLUDED.sale_price
             """,
             sale_rows,
         )

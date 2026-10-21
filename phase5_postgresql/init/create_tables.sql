@@ -59,9 +59,9 @@ CREATE TABLE houses_sale (
 CREATE TABLE model_runs (
     run_id SERIAL PRIMARY KEY,
     model_name VARCHAR(100) NOT NULL,
-    rmse_cv NUMERIC,
-    mae_cv NUMERIC,
-    r2_cv NUMERIC,
+    rmse_train NUMERIC,
+    mae_train NUMERIC,
+    r2_train NUMERIC,
     rmse_test NUMERIC,
     mae_test NUMERIC,
     r2_test NUMERIC
