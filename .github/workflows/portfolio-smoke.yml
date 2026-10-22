@@ -1,0 +1,27 @@
+name: Python preprocessing smoke tests
+
+on:
+  push:
+    branches:
+      - docs/recruiter-portfolio-improvement
+  pull_request:
+
+jobs:
+  preprocessing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements-local.txt
+      - name: Check Python syntax
+        run: python -m compileall -q phase2_docker/src phase4_spark/app phase5_postgresql phase6_visualisation
+      - name: Run preprocessing regression tests
+        run: python -m pytest -q tests/
+      - name: Prepare data
+        run: python phase2_docker/src/prepare_ames_housing.py
+      - name: Assert output exists
+        run: test -s phase2_docker/output/ames_housing_prepared.csv
