@@ -1,161 +1,118 @@
 # Real Estate Big Data Analytics Platform
-**Ames Housing · Data Engineering · Distributed Processing · Machine Learning**
 
-Academic data-engineering and predictive-analytics project using the Ames Housing dataset. The goal is to demonstrate an end-to-end workflow: preprocess property data, store it in HDFS, train regression models with Apache Spark MLlib, save model runs and predictions in PostgreSQL, and generate analytical visualizations.
+**Python · Pandas · HDFS · Apache Spark MLlib · PostgreSQL · Docker · Data Visualization**
 
-> **Scope:** This is an educational architecture demonstration, not a deployed real-estate product. Ames Housing contains approximately 2,930 properties and does **not** require distributed processing at this scale. Spark and HDFS are used to learn and demonstrate distributed infrastructure.
+An academic data-engineering and machine-learning project exploring **end-to-end housing price analytics** with the Ames Housing dataset. It combines data cleaning, a demonstration HDFS/Spark architecture, three regression algorithms, relational storage of model outputs, and business-oriented visualizations.
 
-## Architecture
+> **Project scope:** This is an academic distributed-systems exercise, **not a deployed production platform**. The approximately 2,930-house Ames dataset is small enough for single-machine processing; Spark and HDFS were chosen to learn distributed data architecture, not because they were necessary for scale.
+
+## Architecture at a glance
 
 ```mermaid
 flowchart LR
-    A["AmesHousing.tsv<br/>source dataset"] --> B["Python + Pandas<br/>clean / engineer features"]
-    B --> C["Prepared CSV<br/>phase2_docker/data or output (check actual script)"]
-    C --> D["HDFS<br/>namenode + datanode"]
-    D --> E["Spark MLlib<br/>linear / RF / GBT"]
-    E --> F["PostgreSQL<br/>model_runs + predictions"]
-    A --> G["Python import<br/>original stable IDs"]
-    G --> H["PostgreSQL<br/>house tables"]
-    H --> I["Python visualization"]
-    F --> I
-    I --> J["Charts / reports"]
+    A["Ames Housing TSV"] --> B["Pandas preprocessing<br/>feature engineering"]
+    B --> C["Prepared CSV"]
+    C -. "manual transfer to HDFS" .-> D["HDFS<br/>NameNode + DataNode"]
+    D --> E["Spark MLlib<br/>train/test split"]
+    E --> F["Linear / RF / GBT<br/>predictions and metrics"]
+    F -. "JDBC integration requires fixes" .-> P["PostgreSQL<br/>model runs + predictions"]
+    A --> I["Raw house importer"]
+    I --> P
+    P --> V["Python visualizations<br/>market + model evaluation"]
 ```
 
-The diagrams show the **intended and implemented components**; full multi-container integration must be validated in your own Docker environment.
+*The diagram distinguishes intended connections from integration gaps in the current `main` branch. A complete, independently reproduced multi-container run is not claimed.*
 
-## Repository map
+## Explore the results
 
-| Directory | Purpose |
+The repository contains **25 existing visualization PNGs** from earlier project work. These images are historical artifacts, not freshly reproduced metrics of the current source tree.
+
+| Housing market | Regression evaluation |
 | --- | --- |
-| `phase2_docker/` | Raw/prepared data, Python cleaning, feature engineering, Dockerfile |
-| `phase3_hdfs/` | HDFS Docker Compose cluster |
-| `phase4_spark/` | Spark master/worker and PySpark regression training |
-| `phase5_postgresql/` | Relational schema and raw-property importer |
-| `phase6_visualisation/` | PostgreSQL-based descriptive and model-evaluation charts |
-| `phase7_platform/` | **UI concepts/mockups only** (no frontend app is included) |
-| `docs/` | Technical academic report and original diagram |
+| ![Average sale price by neighborhood](phase6_visualisation/output/03_prix_moyen_par_quartier.png) | ![Held-out test RMSE by model](phase6_visualisation/output/16_rmse_test_par_modele.png) |
+| [Price distribution](phase6_visualisation/output/01_distribution_prix.png) · [Feature correlations](phase6_visualisation/output/14_heatmap_correlations.png) | [Actual vs predicted](phase6_visualisation/output/20_reel_vs_predit.png) · [Residual analysis](phase6_visualisation/output/25_residus_vs_prix_reel.png) |
 
-## Modeling methodology
+### Interface concepts — not implemented application screenshots
 
-The Python preparation script cleans missing values, drops houses with `Gr Liv Area > 4000`, creates engineered attributes (house age, total surface, bathrooms and amenity indicators), one-hot encodes categorical features, but the existing main implementation rebuilds house IDs after filtering. This can misalign predictions with the original database records; it is an unresolved correctness issue.
+![Web dashboard design concept](phase7_platform/web1.jpg)
 
-The PySpark pipeline performs a seeded 80/20 train/test split and compares:
-- Linear Regression
-- Random Forest Regressor
-- Gradient Boosted Trees Regressor (Spark `GBTRegressor`)
+The `phase7_platform/` directory contains **web and mobile UI mockups only**; no running frontend application is included.
 
-It computes RMSE, MAE and R² for **training** and **held-out test** predictions. **No cross-validation is implemented.** In the existing main branch, training scores may be labeled `*_cv`, although the code does not implement cross-validation. Treat those values as training metrics, not CV metrics.
+## Engineering pipeline
 
-**Methodological limitation:** cleaning, numeric imputation and dummy encoding are currently performed on the full dataset before the train/test split. This risks leakage of distribution-level information; using fitted preprocessing transformers within a training-only pipeline is a future improvement. Do not interpret historical chart files as rerun/validated results of the updated pipeline until you reproduce the run.
+| Phase | Technology | Repository | Purpose |
+| --- | --- | --- | --- |
+| 1. Preparation | Python, Pandas, NumPy | [`phase2_docker/`](phase2_docker/) | Impute missing values, filter outliers, engineer features and encode variables |
+| 2. Distributed storage | Hadoop HDFS | [`phase3_hdfs/`](phase3_hdfs/) | Experiment with a NameNode/DataNode environment |
+| 3. Regression | Spark MLlib | [`phase4_spark/`](phase4_spark/) | Train and compare three regression estimators |
+| 4. Persistence | PostgreSQL 16 | [`phase5_postgresql/`](phase5_postgresql/) | Store property attributes, experiment runs and predictions |
+| 5. Analysis | Python, Matplotlib | [`phase6_visualisation/`](phase6_visualisation/) | Analyze property prices, prediction errors and evaluation metrics |
+| 6. UX exploration | Static design assets | [`phase7_platform/`](phase7_platform/) | Explore potential presentation of the results |
 
-## PostgreSQL schema
+The full [academic report](docs/rapport-big-data.pdf) and an [original pipeline illustration](docs/pipline_utilisé.png) are also available.
 
-The relational database has four house tables (`houses_core`, `houses_location`, `houses_structure`, `houses_sale`), plus `model_runs` and `predictions`. Each house uses the original `Order` value as its stable ID; model predictions refer to `house_id` and `run_id`. The documentation-only main branch retains its original importer. An improved importer exists on a separate, unmerged technical review branch.
+## Machine learning approach
 
-## Local setup notes (Docker required)
+The Spark training script compares:
 
-> **Important:** This README documents the existing `main` implementation. The separately reviewed technical branch contains unmerged improvements to paths, IDs, connectivity and database writes. Commands below require manual path and configuration checks; they are not a tested one-command reproduction.
+- **Linear Regression** — interpretable linear baseline.
+- **Random Forest Regressor** — non-linear tree ensemble.
+- **Gradient-Boosted Trees Regressor (GBT)** — sequential tree ensemble.
 
+The script uses a seeded 80/20 train/test split and computes **RMSE, MAE and R²**. The source code currently saves training metrics in database fields named `*_cv` even though it does **not** perform cross-validation; those values must not be described as CV results.
 
-**Requirements:** Docker Engine with Compose V2, Python 3.11+, Java/Spark dependencies supplied by the Spark container. Host Python libraries: `pandas`, `numpy`, `pg8000`, `matplotlib` (install from `requirements-local.txt`). Use the repository's included source dataset and check its original licensing/attribution before redistributing it elsewhere.
+**Methodological caveat:** imputation and encoding are applied before the train/test split, which can introduce information leakage. Historical figures must not be treated as a controlled, independently reproduced benchmark without rerunning the experiment.
 
-From the repository root, in a shell that supports the following commands:
+## What can be reproduced now?
+
+### 1. Local preprocessing
+
+With Python and the included raw `AmesHousing.tsv` file:
 
 ```bash
-python -m pip install -r requirements-local.txt
+python -m pip install -r phase2_docker/requirements.txt
 python phase2_docker/src/prepare_ames_housing.py
-docker compose -f phase3_hdfs/docker-compose.yml up -d
-docker compose -f phase5_postgresql/docker-compose.yml up -d
 ```
 
-Upload the **newly prepared** CSV into HDFS after the HDFS NameNode is healthy:
+The current script writes `phase2_docker/data/ames_housing_prepared.csv`. The HDFS Compose file instead mounts `phase2_docker/output/` as `/external_output`; **the output directory and HDFS import must be reconciled before running the entire pipeline**. An older CSV already exists under `output/`, but do not assume it matches the freshly prepared data.
+
+### 2. Inspect the infrastructure definitions
+
+The repository includes Docker Compose files for Hadoop, Spark and PostgreSQL:
 
 ```bash
-docker exec namenode hdfs dfs -mkdir -p /data/ames
-docker exec namenode hdfs dfs -put -f /external_output/ames_housing_prepared.csv /data/ames/ames_housing_prepared.csv
+docker compose -f phase3_hdfs/docker-compose.yml config
+docker compose -f phase4_spark/docker-compose.yml config
+docker compose -f phase5_postgresql/docker-compose.yml config
 ```
 
-Before ML training, initialize PostgreSQL by starting with a **fresh development database volume**, or migrate an existing database carefully. `create_tables.sql` runs automatically only when the database volume is initialized. **Do not delete an existing volume to apply schema changes.**
+These commands only inspect Compose configuration; they do **not** prove that the services or full workflow execute successfully. Hadoop exposes the NameNode UI on local port **9870**, Spark master UI on **8080**, and PostgreSQL maps host port **5433** to container port **5432**.
 
-```bash
-python phase5_postgresql/import_houses.py
-docker compose -f phase4_spark/docker-compose.yml up -d
-```
+**Do not run the raw PostgreSQL importer against a database containing results you want to preserve.** In the current code it deletes existing predictions, model runs and house-table rows before reimporting source records.
 
-The Spark Compose configuration attaches workers to the existing `phase3_hdfs_default` and `phase5_postgresql_default` networks. Those networks are created by starting HDFS and PostgreSQL first. This configuration has not been integration-tested in this review. Train by running the PySpark script **inside a Spark environment**, ensuring both the PostgreSQL JDBC driver and database credentials are available:
+### 3. Integration requirements not yet resolved on `main`
 
-```bash
-# Example using your existing Spark master container:
-docker exec -it spark-master /bin/bash
-# Check the installed JDBC jar and Spark submit classpath before running:
-# /opt/spark/bin/spark-submit --jars /path/to/postgresql-jdbc.jar /app/train_house_price_model.py
-```
+- **HDFS data path:** the preprocessing output and bind-mounted directory differ.
+- **Spark → PostgreSQL networking:** Spark joins HDFS and Spark networks, but not the PostgreSQL Compose network. The hard-coded JDBC hostname therefore needs configuration and network verification.
+- **PostgreSQL driver:** Spark JDBC requires a compatible PostgreSQL JDBC driver.
+- **Identifiers:** preprocessing filters records then regenerates `house_id` by index, while the raw SQL importer separately numbers the full dataset. This can produce incorrect joins between properties and predictions.
+- **Configuration:** the raw importer uses a host database port that does not match the Docker host mapping; the visualization script also defaults to an empty password.
+- **Reproducible experiment:** preprocessing should be trained only on training data; metrics should be named accurately and recomputed after the pipeline is fixed.
 
-The `/path/to/postgresql-jdbc.jar` placeholder is **not** an executable path. Supply a compatible, legally obtained PostgreSQL JDBC driver and confirm the exact container path. A verified one-command training setup remains a **known reproducibility blocker**.
+A separate development branch contains proposed technical repairs, but **those code changes are not part of `main`**. This README describes the actual published implementation.
 
-Once predictions exist, generate charts on the host:
+## Engineering choices and lessons
 
-```bash
-python phase6_visualisation/visualization_postgres.py
-```
+**Distributed architecture:** deliberately explore HDFS and Spark even though the dataset fits on one computer. This demonstrates infrastructure concepts while acknowledging their deployment overhead.
 
-### Configuration
+**Structured persistence:** split house attributes into normalized PostgreSQL tables and store model runs separately for auditability and comparative analysis.
 
-For a **local demonstration only**, the Compose files currently use the `ames_user` account and a default development password. **Do not expose the database to the Internet or reuse those credentials elsewhere.** Override defaults through environment variables, and never commit actual credentials.
+**Multiple estimators:** compare a simple linear baseline with two ensemble approaches rather than presenting a single unchallenged prediction model.
 
-| Setting | Purpose |
-| --- | --- |
-| `AMES_POSTGRES_PASSWORD` | PostgreSQL container password |
-| `AMES_DB_HOST`, `AMES_DB_PORT`, `AMES_DB_NAME`, `AMES_DB_USER`, `AMES_DB_PASSWORD` | Host-side import and visualization |
-| `AMES_JDBC_URL`, `AMES_POSTGRES_USER`, `AMES_POSTGRES_PASSWORD` | Spark-side JDBC configuration |
-| `AMES_HDFS_INPUT` | Spark HDFS CSV input URL |
+**Source-to-model integrity:** joins need identifiers that remain stable through cleaning and filtering. This review identified a concrete mismatch risk — an important lesson in data engineering and data quality.
 
-For consistency, set `AMES_DB_PASSWORD` and `AMES_POSTGRES_PASSWORD` to the same chosen development password. **An existing PostgreSQL data volume will not automatically change its database password** when the Compose environment is changed.
-
-## Visual evidence
-
-Existing generated artifacts, provided from a prior academic run:
-
-| Analysis | Artifact |
-| --- | --- |
-| Prices by neighborhood | [Neighborhood price plot](phase6_visualisation/output/03_prix_moyen_par_quartier.png) |
-| Correlations | [Feature correlation heatmap](phase6_visualisation/output/14_heatmap_correlations.png) |
-| Model comparison | [Test RMSE chart](phase6_visualisation/output/16_rmse_test_par_modele.png) |
-| Actual versus predicted | [Regression scatter plot](phase6_visualisation/output/20_reel_vs_predit.png) |
-
-These are historical committed images; their numerical content was **not independently reproduced** during this review. They should be regenerated after confirming the complete stack and stable IDs.
-
-![Existing market visualization](phase6_visualisation/output/03_prix_moyen_par_quartier.png)
-
-### Platform design concepts
-
-![Concept UI – not an implemented frontend](phase7_platform/web1.jpg)
-
-The images in `phase7_platform/` are **concept/mockup screenshots**, not evidence of an operating web or mobile application.
-
-## Validation and limitations
-
-Run lightweight regression tests and syntax checks:
-
-```bash
-python -m pip install -r requirements-local.txt
-python -m pytest -q tests/
-python -m compileall -q phase2_docker/src phase4_spark/app phase5_postgresql phase6_visualisation
-docker compose -f phase3_hdfs/docker-compose.yml config -q
-docker compose -f phase4_spark/docker-compose.yml config -q
-docker compose -f phase5_postgresql/docker-compose.yml config -q
-```
-
-Compose and runtime commands need a local Docker environment. In this update, **full HDFS → Spark → PostgreSQL execution, migration of existing persistent databases and numeric ML metrics have not been verified**. A future iteration should add integration tests, pinned dependency versions, a built-in JDBC jar setup, training-only preprocessing, and orchestration.
-
-## Engineering trade-offs
-
-- **HDFS + Spark for a small dataset:** educational demonstration of distributed storage/compute; slower and more complex than Pandas/Scikit-learn for Ames at this scale.
-- **Stable source IDs:** source `Order` values are used across the raw importer and filtered ML data to maintain referential integrity.
-- **PostgreSQL normalization:** house descriptors, sales, and experiments are queryable without embedding the full dataset into each prediction row.
-- **Test vs. training metrics:** scores are explicitly named; no cross-validation claim.
-- **Screenshots:** historical charts and UI concepts are labeled honestly rather than described as production evidence.
+**Evidence-based presentation:** the committed plots document prior work, while execution readiness, accuracy and production claims require distinct validation.
 
 ## Contributors
 
-Original academic project contributors: **Edam Laadhar** and **Siwar Maaoui**. Individual contribution ownership is not claimed without evidence.
+Academic team project by **Edam Laadhar** and **Siwar Maaoui**. Individual contribution boundaries are not documented sufficiently to claim sole authorship.
